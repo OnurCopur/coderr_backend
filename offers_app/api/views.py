@@ -1,10 +1,12 @@
 from rest_framework import generics, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Min
+from django.http import Http404
+from rest_framework.exceptions import ValidationError
 from ..models import Offer, OfferDetail
 from .serializers import OfferSerializer, OfferDetailSerializer, OfferListSerializer, OfferDetailFullSerializer
 from .pagination import OfferPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -12,16 +14,14 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 class OfferListCreateView(generics.ListCreateAPIView):
     queryset = Offer.objects.all().order_by('-updated_at')
-    # serializer_class = OfferSerializer
-    permission_classes = [IsAuthenticated]  # Aktiviert
+    permission_classes = [AllowAny]  
     authentication_classes = [TokenAuthentication]
     pagination_class = OfferPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['user']  # Für creator_id
     search_fields = ['title', 'description']
-    ordering_fields = ['updated_at', 'min_price']  # Korrigiert
+    ordering_fields = ['updated_at', 'min_price']  
     parser_classes = (JSONParser, MultiPartParser, FormParser)
-
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -43,9 +43,18 @@ class OfferListCreateView(generics.ListCreateAPIView):
         if creator_id:
             qs = qs.filter(user__id=creator_id)
         if min_price:
-            qs = qs.filter(min_price__gte=min_price)
+            try:
+                min_price = float(min_price)
+                qs = qs.filter(min_price__gte=min_price)
+            except ValueError:
+                raise ValidationError({"min_price": "Ungültiger Wert. Erwartet wird eine Zahl."})
+        
         if max_delivery_time:
-            qs = qs.filter(min_delivery_time__lte=max_delivery_time)
+            try:
+                max_delivery_time = int(max_delivery_time)
+                qs = qs.filter(min_delivery_time__lte=max_delivery_time)
+            except ValueError:
+                raise ValidationError({"max_delivery_time": "Ungültiger Wert. Erwartet wird eine ganze Zahl."})
         
         return qs
 
@@ -55,11 +64,9 @@ class OfferListCreateView(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)  # Der Benutzer wird im Serializer gesetzt
 
 
-
-
 class OfferDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Offer.objects.all()
-    serializer_class = OfferDetailSerializer  # Verwende den OfferGETSerializer
+    serializer_class = OfferDetailSerializer  
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication]
 
@@ -69,7 +76,11 @@ class OfferDetailView(generics.RetrieveUpdateDestroyAPIView):
         return OfferDetailSerializer
 
     def get_object(self):
-        offer = super().get_object()
+        try:
+            offer = Offer.objects.get(pk=self.kwargs['pk'])
+        except Offer.DoesNotExist:
+            raise Http404
+
         if self.request.method in ['PATCH', 'PUT', 'DELETE']:
             if not (self.request.user.is_staff or offer.user == self.request.user):
                 raise PermissionDenied("You do not have permission to modify this offer.")

@@ -52,13 +52,15 @@ class OrderCreateSerializer(serializers.Serializer):
         customer_user = request.user
 
         # Das zugehörige Angebot (Offer) enthält den Anbieter (business_user)
-        business_user = offer_detail.offer.user
+        offer = offer_detail.offer  # Zugriff auf das übergeordnete Offer
+        business_user = offer.user  # Der Anbieter (business_user)
+        title = offer.title  # Der Titel des Angebots (Offer)
 
         # Übernehme die Felder aus dem OfferDetail
         order = Order.objects.create(
             customer_user=customer_user,
             business_user=business_user,
-            title=offer_detail.title,
+            title=title,
             revisions=offer_detail.revisions,
             delivery_time_in_days=offer_detail.delivery_time_in_days,
             price=offer_detail.price,

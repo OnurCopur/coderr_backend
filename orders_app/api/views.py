@@ -1,5 +1,6 @@
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
+from .permissions import IsBusinessUserOwner
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
@@ -85,14 +86,18 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
 class OrderCountView(APIView):
     """
     GET /orders/order-count/{business_user_id}/:
-    Gibt die Anzahl der laufenden Bestellungen für einen Business-Nutzer zurück.
+    Gibt die Anzahl der laufenden Bestellungen für den angemeldeten Business-Nutzer zurück.
     """
-    # permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, IsBusinessUserOwner] 
 
     def get(self, request, business_user_id):
-        business_user = get_object_or_404(User, id=business_user_id)
-        order_count = Order.objects.filter(business_user=business_user, status='in_progress').count()
+        # Business-User wird bereits durch die Permission validiert
+        business_user = request.user  # Direkt aus dem Request
+        order_count = Order.objects.filter(
+            business_user=business_user, 
+            status='in_progress'
+        ).count()
         return Response({"order_count": order_count})
 
 

@@ -1,7 +1,7 @@
 from rest_framework import generics, filters, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, NotFound
 from django.shortcuts import get_object_or_404
 from ..models import Review
 from .serializers import (
@@ -51,21 +51,24 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         serializer.save()
 
 class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    GET /api/reviews/{id}/:
-      Ruft die Details einer spezifischen Bewertung ab.
-    
-    PATCH /api/reviews/{id}/:
-      Aktualisiert ausgewählte Felder ('rating' und 'description') einer bestehenden Bewertung.
-      Nur der Ersteller der Bewertung darf diese bearbeiten.
-    
-    DELETE /api/reviews/{id}/:
-      Löscht eine spezifische Bewertung.
-      Nur der Ersteller der Bewertung darf diese löschen.
-    """
     queryset = Review.objects.all()
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
+    
+    def get_object(self):
+        pk = self.kwargs.get('pk')
+        try:
+            # Versuche, die ID in eine Ganzzahl umzuwandeln
+            pk = int(pk)
+            obj = Review.objects.get(pk=pk)
+        except (ValueError, Review.DoesNotExist):
+            # JSON-404-Antwort mit Statuscode 404
+            raise NotFound(
+                detail={"error": "Bewertung nicht gefunden."},
+                code=status.HTTP_404_NOT_FOUND
+            )
+        return obj
+
 
     def get_serializer_class(self):
         if self.request.method in ['PATCH', 'PUT']:
@@ -73,13 +76,11 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
         return ReviewSerializer
 
     def perform_update(self, serializer):
-        # Nur der Ersteller (reviewer) darf die Bewertung aktualisieren.
         if self.get_object().reviewer != self.request.user:
             raise PermissionDenied("Sie sind nicht berechtigt, diese Bewertung zu bearbeiten.")
         serializer.save()
 
     def perform_destroy(self, instance):
-        # Nur der Ersteller (reviewer) darf die Bewertung löschen.
         if instance.reviewer != self.request.user:
             raise PermissionDenied("Sie sind nicht berechtigt, diese Bewertung zu löschen.")
         instance.delete()

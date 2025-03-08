@@ -100,10 +100,12 @@ class ProfileDetailView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TokenAuthentication]
 
-
     def get(self, request, pk, format=None):
         if not request.user.is_authenticated:
             return Response({"detail": "User not authenticated"}, status=status.HTTP_403_FORBIDDEN)
+
+        if request.user.id != pk:
+            return Response({"detail": "You can only view your own profile."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             profile = Profile.objects.get(user_id=pk)
@@ -114,6 +116,9 @@ class ProfileDetailView(APIView):
         return Response(serializer.data)
 
     def put(self, request, pk, format=None):
+        if request.user.id != pk:
+            return Response({"detail": "You can only edit your own profile."}, status=status.HTTP_403_FORBIDDEN)
+
         try:
             profile = Profile.objects.get(user_id=pk)
         except Profile.DoesNotExist:
@@ -124,14 +129,17 @@ class ProfileDetailView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def patch(self, request, pk, format=None):  # Füge die PATCH-Methode hinzu
+
+    def patch(self, request, pk, format=None):
+        if request.user.id != pk:
+            return Response({"detail": "You can only edit your own profile."}, status=status.HTTP_403_FORBIDDEN)
+
         try:
             profile = Profile.objects.get(user_id=pk)
         except Profile.DoesNotExist:
             return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = ProfileSerializer(profile, data=request.data, partial=True)  # PATCH erlaubt partielle Updates
+        serializer = ProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)

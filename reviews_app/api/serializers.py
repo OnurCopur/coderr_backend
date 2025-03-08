@@ -21,7 +21,16 @@ class ReviewSerializer(serializers.ModelSerializer):
 class ReviewCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
-        fields = ['business_user', 'rating', 'description']
+        fields = [
+            'id',
+            'business_user',
+            'reviewer',
+            'rating',
+            'description',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'reviewer', 'created_at', 'updated_at']
 
     def validate_business_user(self, value):
         # Sicherstellen, dass der angegebene User ein Geschäftsbenutzer ist

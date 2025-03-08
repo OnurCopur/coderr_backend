@@ -113,7 +113,7 @@ class OfferSerializer(serializers.ModelSerializer):
             details_data = data.get('details', [])
             
             # Nur bei POST-Anfragen prüfen, ob genau drei Details vorhanden sind
-            if self.context['request'].method == 'POST':
+            if self.context['request'].method in ['POST', 'PATCH']:
                 if len(details_data) != 3:
                     raise serializers.ValidationError({"details": "Exactly three offer details must be provided."})
                 
@@ -149,15 +149,13 @@ class OfferSerializer(serializers.ModelSerializer):
         if details_data:
             for detail_data in details_data:
                 offer_type = detail_data.get('offer_type')
-                try:
-                    detail = instance.details.get(offer_type=offer_type)
-                    detail.title = detail_data.get('title', detail.title)
-                    detail.revisions = detail_data.get('revisions', detail.revisions)
-                    detail.delivery_time_in_days = detail_data.get('delivery_time_in_days', detail.delivery_time_in_days)
-                    detail.price = detail_data.get('price', detail.price)
-                    detail.features = detail_data.get('features', detail.features)
-                    detail.save()
-                except OfferDetail.DoesNotExist:
-                    pass
+                # 🔽 Entferne try/except, um DoesNotExist als 400-Fehler zu propagieren
+                detail = instance.details.get(offer_type=offer_type)
+                detail.title = detail_data.get('title', detail.title)
+                detail.revisions = detail_data.get('revisions', detail.revisions)
+                detail.delivery_time_in_days = detail_data.get('delivery_time_in_days', detail.delivery_time_in_days)
+                detail.price = detail_data.get('price', detail.price)
+                detail.features = detail_data.get('features', detail.features)
+                detail.save()
 
         return instance
