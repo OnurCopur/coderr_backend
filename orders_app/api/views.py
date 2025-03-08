@@ -89,7 +89,7 @@ class OrderCountView(APIView):
     Gibt die Anzahl der laufenden Bestellungen für den angemeldeten Business-Nutzer zurück.
     """
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, IsBusinessUserOwner] 
+    permission_classes = [IsAuthenticated] 
 
     def get(self, request, business_user_id):
         # Business-User wird bereits durch die Permission validiert
